@@ -1,0 +1,116 @@
+---
+title: "Ekz"
+author: "Yulian Volianskiy"
+date: "06 01 2021"
+output: html_document
+---
+
+1. Reading data and transform Date from char to Date format
+
+```{r}
+
+setwd("E:/prazia/univer/DataScience/Ekz/acea-water-prediction")
+df <- read.csv("Water_Spring_Lupa.csv")
+df$п.їDate = strptime(df$п.їDate, "%d/%m/%Y")
+df$Date <- ymd(df$п.їDate)
+ggplot(data=df, aes(x=Date, y=Flow_Rate_Lupa)) + geom_line()
+head(df)
+
+df_data <- read.csv("water_spring_lupa_csv_r2.csv")
+head(df_data)
+df_train <- read.csv("water_spring_lupa_csv_r.csv")
+head(df_data)
+
+library(Amelia)
+missmap(df_train, main = "Missing values vs observed")
+missmap(df_data, main = "Missing values vs observed")
+
+train1 <- head(df_train, 3000)
+test1 <- tail(df_train, 817)
+
+```
+Here we can see a plot, that shows us an empty parts in our data. So first of all we should to find Nans and predict them. I divided data in two types:
+1. Data with Nans
+2. Data without empty fields
+
+After that I divided data without empty fields into train and test datas. It will be useful for linear regresion model. 
+
+
+
+Next step - I should create a logistic regresion using train data.
+```{r}
+
+library(ggplot2)
+library(hexbin)
+
+ggplot(df_train, aes(x = flow_rate_lupa, y = rainfall_terni)) + geom_point(alpha = 0.1)
+hexbinplot(rainfall_terni ~ flow_rate_lupa, data=df_train)
+
+df_trainLM = lm(flow_rate_lupa ~ rainfall_terni, data = df_train) #Create the linear regression
+summary(df_trainLM)
+
+```
+If we'll inspect coeficients, we'll see that this model isn't strong due to:
+R-squared - it's apeared to be too small, near zero.
+p_value - not too small.
+That can say us, that we need probably more data to culculate stronger linear regresion model.
+
+
+Using prediction function we try to predict values in empty fields
+```{r}
+
+newdata1 <- test1$flow_rate_lupa
+df_data$flow_rate_lupa <-predict(df_trainLM,newdata=df_data,type="response")
+df_new <- rbind(df_data,df_train)
+
+df_new$п.їDate = strptime(df_new$п.їDate, "%d/%m/%Y")
+df_new$Date <- ymd(df_new$п.їDate)
+
+ggplot(data=df_new, aes(x=Date, y=df_new$flow_rate_lupa)) + geom_line()
+
+```
+In the plot we can see that it hasn't even distribution, so that kind of prediction data doesn't fit.
+
+
+
+Another way to predict data - using interpolation function, so lets try it:
+```{r}
+library(imputeTS)
+library(lubridate)
+df$Flow_Rate_Lupa <- na.interpolation(df$Flow_Rate_Lupa, option = "spline")
+
+
+df$Date <- ymd(df$п.їDate)
+
+library(ggplot2)
+
+ggplot(data=df, aes(x=Date, y=Flow_Rate_Lupa)) + geom_line()
+
+#plot(x=df$п.їDate, y=df$Flow_Rate_Lupa)
+
+```
+In the plot we can see, that it probably fits our problem and have even distribution in empty places. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

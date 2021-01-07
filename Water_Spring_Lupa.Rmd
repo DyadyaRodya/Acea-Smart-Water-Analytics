@@ -91,19 +91,228 @@ ggplot(data=df, aes(x=Date, y=Flow_Rate_Lupa)) + geom_line()
 ```
 In the plot we can see, that it probably fits our problem and have even distribution in empty places. 
 
+Prepare data and sort by date. Check timeinterval.
+
+```{r}
+
+library(data.table)
+
+df <- df[order(df$Date), ]
+df['Time_Interval'] = df$Date - shift(df$Date, n=1, fill=NA, type="lag")
+
+days <- df$Time_Interval
 
 
+for(i in days)
+{
+  
+  if(isTRUE(i > 1) || is.null(i))
+  {
+    print(i)
+  }
+    
+}
+
+```
 
 
+```{r}
+
+library(tseries)
+library(urca)
+
+result<-ur.df(df$Flow_Rate_Lupa,type = "none",lags=1)
+summary(result)
+
+```
+
+```{r}
+library(ggplot2)
 
 
+significance_level = 0.05
+adf_stat = result@teststat[1]
+p_val = 2.2e-16
+
+crit_val_1 = result@cval[1]
+crit_val_5 = result@cval[2]
+crit_val_10 = result@cval[3]
 
 
+linecolor = 'indianred'
+
+if ((p_val < significance_level) & ((adf_stat < crit_val_1)))
+  linecolor = 'forestgreen' 
+if ((p_val < significance_level) & (adf_stat < crit_val_5))
+  linecolor = 'gold'
+if ((p_val < significance_level) & (adf_stat < crit_val_10))
+  linecolor = 'orange'
+
+ggplot(data=df, aes(x=Date, y=Flow_Rate_Lupa)) + geom_line(color=linecolor)
+
+```
+
+```{r}
+
+result2<-ur.df(df$Rainfall_Terni,type = "none",lags=1)
+summary(result2)
+
+```
 
 
+```{r}
+
+significance_level = 0.05
+adf_stat = result@teststat[1]
+p_val = 2.2e-16
+
+crit_val_1 = result@cval[1]
+crit_val_5 = result@cval[2]
+crit_val_10 = result@cval[3]
 
 
+linecolor = 'indianred'
 
+if ((p_val < significance_level) & ((adf_stat < crit_val_1)))
+  linecolor = 'forestgreen' 
+if ((p_val < significance_level) & (adf_stat < crit_val_5))
+  linecolor = 'gold'
+if ((p_val < significance_level) & (adf_stat < crit_val_10))
+  linecolor = 'orange'
+
+ggplot(data=df, aes(x=Date, y=Rainfall_Terni)) + geom_line(color=linecolor)
+
+```
+
+```{r}
+
+df['Flow_Rate_Lupa_log'] = log10(abs(df$Flow_Rate_Lupa))
+df['Rainfall_Terni_log'] = log10(abs(df$Rainfall_Terni))
+
+is.na(df['Rainfall_Terni_log'])<-sapply(df['Rainfall_Terni_log'], is.infinite)
+df['Rainfall_Terni_log'][is.na(df['Rainfall_Terni_log'])]<-0
+
+is.na(df['Flow_Rate_Lupa_log'])<-sapply(df['Flow_Rate_Lupa_log'], is.infinite)
+df['Flow_Rate_Lupa_log'][is.na(df['Flow_Rate_Lupa_log'])]<-0
+
+ggplot(data=df, aes(x=Date, y=Flow_Rate_Lupa_log)) + geom_line()
+ggplot(data=df, aes(x=Date, y=Rainfall_Terni_log)) + geom_line()
+
+Flow_Rate_Lupa_log_diff <- diff(df$Flow_Rate_Lupa_log)
+Rainfall_Terni_log_diff <- diff(df$Rainfall_Terni_log)
+
+Flow_Rate_Lupa_log_diff <- append(Flow_Rate_Lupa_log_diff, 0, 0)
+df['Flow_Rate_Lupa_log_diff'] = Flow_Rate_Lupa_log_diff
+Rainfall_Terni_log_diff <- append(Rainfall_Terni_log_diff, 0, 0)
+df['Rainfall_Terni_log_diff'] = Rainfall_Terni_log_diff
+
+ggplot(data=df, aes(x=Date, y=Flow_Rate_Lupa_log_diff)) + geom_line()
+ggplot(data=df, aes(x=Date, y=Rainfall_Terni_log_diff)) + geom_line()
+
+```
+
+
+```{r}
+
+result3<-ur.df(df$Flow_Rate_Lupa_log,type = "none",lags=1)
+summary(result3)
+
+```
+
+
+```{r}
+
+significance_level = 0.05
+adf_stat = result@teststat[1]
+p_val = 2.2e-16
+
+crit_val_1 = result@cval[1]
+crit_val_5 = result@cval[2]
+crit_val_10 = result@cval[3]
+
+
+linecolor = 'indianred'
+
+if ((p_val < significance_level) & ((adf_stat < crit_val_1)))
+  linecolor = 'forestgreen' 
+if ((p_val < significance_level) & (adf_stat < crit_val_5))
+  linecolor = 'gold'
+if ((p_val < significance_level) & (adf_stat < crit_val_10))
+  linecolor = 'orange'
+
+ggplot(data=df, aes(x=Date, y=Flow_Rate_Lupa_log_diff)) + geom_line(color=linecolor)
+
+```
+
+
+```{r}
+
+library(stats)
+
+myts <- ts(df$Rainfall_Terni, start=c(2009, 1, 1), end=c(2020, 30, 6), frequency=52)
+
+decomp = decompose(myts, type='additive')
+
+plot(decomp$trend)
+plot(decomp$seasonal)
+
+```
+
+```{r}
+
+myts <- ts(df$Flow_Rate_Lupa, start=c(2009, 1, 1), end=c(2020, 30, 6), frequency=52)
+
+decomp = decompose(myts, type='additive')
+
+plot(decomp$trend)
+plot(decomp$seasonal)
+
+```
+
+
+```{r}
+
+acf(df$Flow_Rate_Lupa_log_diff)
+pacf(df$Flow_Rate_Lupa_log_diff)
+
+```
+
+```{r}
+
+library(TSstudio)
+library(forecast)
+split_USgas <- ts_split(ts.obj = myts, 130)
+
+plot(split_USgas$train)
+plot(split_USgas$test)
+
+
+autoplot(split_USgas$train) +
+  autolayer(meanf(split_USgas$train),
+    series="Mean", PI=FALSE) +
+  autolayer(naive(split_USgas$train),
+    series="Naïve", PI=FALSE) +
+  autolayer(snaive(split_USgas$train),
+    series="Seasonal naïve", PI=FALSE) +
+   autolayer(split_USgas$test,
+    series="Test", PI=FALSE)+
+  ggtitle("Forecasts for quarterly beer production") +
+  xlab("Year") + ylab("Megalitres") +
+  guides(colour=guide_legend(title="Forecast"))
+
+```
+
+```{r}
+#auto.arima(split_USgas$train, trace=TRUE) 
+
+library(forecast)
+fit <- Arima(split_USgas$train, order = c(0,1,1), include.drift = TRUE)
+summary(fit)
+
+futurVal <- forecast(fit,h=130, level=c(99.5))
+plot(futurVal)
+
+```
 
 
 

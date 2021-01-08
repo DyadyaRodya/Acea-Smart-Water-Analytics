@@ -1,0 +1,345 @@
+---
+title: "acea_water_petrigano"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Aquifer
+## Petrignano
+### Data preparation
+```{r}
+df <- as.data.frame(read.table('./acea-water-prediction/Aquifer_Petrignano.csv', header = TRUE, sep=','))
+head(df, n=20)
+```
+
+
+Remove NA elements from data 
+```{r}
+df <- df[complete.cases(df$Rainfall_Bastia_Umbra),]
+rownames(df) <- 1:nrow(df)
+head(df, n=20)
+```
+```{r}
+df <- subset(df, select = -c(Depth_to_Groundwater_P25, Temperature_Petrignano ))
+colnames(df) <- c("Date", "Rainfall", "Depth_to_Groundwater","Temperature", " Volume", " Hydrometry" )
+head(df, n=20)
+```
+
+Plot data
+```{r}
+library('ggplot2')
+library('forecast')
+library('zoo')
+library('dplyr')
+library('data.table')
+library('imputeTS')
+library('xts')
+library('tseries')
+library('stats')
+library('nlme')
+library('fpp')
+library('lubridate')
+```
+### Data preparation
+```{r}
+# sort by date
+arrange(df, df$Date)
+# count difference. Difference must be the same because it is need for time series
+df$Date <- as.Date(df$Date, format= "%d/%m/%Y")
+#df$Date <- ymd(df$Date)
+interval <- df$Date - shift(df$Date, n=1, type = 'lag')
+```
+
+```{r}
+typeof(df$Date)
+```
+
+```{r}
+# find that there are some missing values in data set
+ggplot_na_distribution(df$Depth_to_Groundwater)
+ggplot_na_distribution(df$Rainfall)
+ggplot_na_distribution(df$Temperature)
+ggplot_na_distribution(df$` Volume`)
+ggplot_na_distribution(df$` Hydrometry`)
+
+statsNA(df$Depth_to_Groundwater)
+statsNA(df$Rainfall)
+statsNA(df$Temperature)
+statsNA(df$` Volume`)
+statsNA(df$` Hydrometry`)
+```
+
+# Interpolate data to fix missing values
+```{r}
+times_dd <- ts(df$Depth_to_Groundwater, start = df$Date[1], frequency=365)
+ggplot_na_distribution(times_dd)
+times_dd <- na_interpolation(times_dd, option="spline")
+ggplot_na_distribution(times_dd)
+plot( times_dd,xlab = "Time", ylab = "Depth_to_Groundwater", main="Depth", axes=FALSE, type="l")
+axis(1,at=seq(df$Date[1], df$Date[length(df$Date)], by="years"),labels=unique(as.character(df$Date, format= "%Y")))
+axis(2)
+box()
+```
+# Interpolation can't be realised due to there are no missong values, there are only 0 values, that are anomaly for for current data. So we can change 0 to nan and then interpolate
+```{r}
+df$` Volume` <- ifelse(df$` Volume` == 0, NaN, df$` Volume`)
+times_vv <- ts(df$` Volume`, start = df$Date[1], frequency=365)
+ggplot_na_distribution(times_vv)
+times_vv <- na_interpolation(times_vv, option="linear")
+ggplot_na_distribution(times_vv)
+plot( times_vv,xlab = "Time", ylab = "Volume", main="Volume", axes=FALSE, type="l")
+axis(1,at=seq(df$Date[1], df$Date[length(df$Date)], by="years"),labels=unique(as.character(df$Date, format= "%Y")))
+axis(2)
+box()
+```
+```{r}
+df$` Hydrometry` <- ifelse(df$` Hydrometry` == 0, NaN, df$` Hydrometry`)
+times_hh <- ts(df$` Hydrometry`, start = df$Date[1], frequency=365)
+ggplot_na_distribution(times_hh)
+times_hh <- na_interpolation(times_hh, option="linear")
+ggplot_na_distribution(times_hh)
+plot( times_hh,xlab = "Time", ylab = "Hydrometry", main="Hydrometry", axes=FALSE, type="l")
+axis(1,at=seq(df$Date[1], df$Date[length(df$Date)], by="years"),labels=unique(as.character(df$Date, format= "%Y")))
+axis(2)
+box()
+```
+
+### Resampling
+### try to unsderstand in what way it will be more efficient to predict
+```{r}
+times_dd <- ts(df$Depth_to_Groundwater, start = df$Date[1], frequency=1)
+times_dd <- na_interpolation(times_dd, option="spline")
+time_dd_week <- period.apply(as.xts(times_dd), endpoints(as.xts(times_dd), "weeks"), range)
+times_dd <- na_interpolation(time_dd_week, option="spline")
+plot( time_dd_week,xlab = "Time", ylab = "Depth_to_Groundwater", main="Depth", axes=FALSE, type="l")
+axis(1,at=seq(df$Date[1], df$Date[length(df$Date)], by="years"),labels=unique(as.character(df$Date, format= "%Y")))
+axis(2)
+box()
+```
+
+```{r}
+times_t <- ts(df$Temperature, start = df$Date[1], frequency=1)
+times_tt_week <- period.apply(as.xts(times_t), endpoints(as.xts(times_t), "weeks"), range)
+plot( times_tt_week,xlab = "Time", ylab = "Temperature", main="Temperature", axes=FALSE, type="l")
+axis(1,at=seq(df$Date[1], df$Date[length(df$Date)], by="years"),labels=unique(as.character(df$Date, format= "%Y")))
+axis(2)
+box()
+```
+
+```{r}
+times_vv <- ts(df$` Volume`, start = df$Date[1], frequency=1)
+times_vv_week <- period.apply(as.xts(times_vv), endpoints(as.xts(times_vv), "weeks"), range)
+times_vv_week <- na_interpolation(times_vv_week, option="linear")
+plot( times_vv_week,xlab = "Time", ylab = "Volume", main="Volume", axes=FALSE, type="l")
+axis(1,at=seq(df$Date[1], df$Date[length(df$Date)], by="years"),labels=unique(as.character(df$Date, format= "%Y")))
+axis(2)
+box()
+```
+
+```{r}
+times_hh <- ts(df$` Hydrometry`, start = df$Date[1], frequency=1)
+times_hh_week <- period.apply(as.xts(times_hh), endpoints(as.xts(times_hh), "weeks"), range)
+times_hh_week <- na_interpolation(times_hh_week, option="linear")
+plot( times_hh_week,xlab = "Time", ylab = "Hydrometry", main="Hydrometry", axes=FALSE, type="l")
+axis(1,at=seq(df$Date[1], df$Date[length(df$Date)], by="years"),labels=unique(as.character(df$Date, format= "%Y")))
+axis(2)
+box()
+```
+
+```{r}
+times <- ts(df$Rainfall, start = df$Date[1], frequency=1)
+times_week <- period.apply(as.xts(times), endpoints(as.xts(times), "weeks"), range)
+plot( times_week,xlab = "Time", ylab = "Rainfall", main="Rainfall", axes=FALSE)
+axis(1,at=seq(df$Date[1], df$Date[length(df$Date)], by="years"),labels=unique(as.character(df$Date, format= "%Y")))
+axis(2)
+box()
+```
+
+We can say that it is not obvious to resample data, we can make predictions for one day and it will be quite accurate and full. If we will take for day or month we can lose some info that will be critical for people' life. Also there is no such big outliers that require smoothing
+
+### Stationarity
+We should understand the character of the data to analyze correctly and may be we can use easier methods. So we need to check. We must determine if the data was generated by a stationary process, and possibly to transform it so it has the properties of a sample generated by such a process.
+In ARIMA data must be stationar.
+
+For test we will use Augmented Dickey-Fuller Test
+```{r}
+adf.test(df$Rainfall,alternative="stationary")
+```
+```{r}
+clean_df <- na.omit(df)
+adf.test(clean_df$Depth_to_Groundwater, alternative = "stationary")
+```
+```{r}
+adf.test(clean_df$Temperature, alternative = "stationary")
+```
+```{r}
+adf.test(clean_df$` Volume`, alternative = "stationary")
+```
+```{r}
+adf.test(clean_df$` Hydrometry`, alternative = "stationary")
+```
+
+If p - value is less then 0.05 it means that stationary data else non - stationary and we need to do some actions with data.
+In our case only depth has non - stationary distribution.
+
+```{r}
+depth <- na_interpolation(df$Depth_to_Groundwater, option = "linear")
+depth <- log10(abs(depth))
+adf.test(depth, alternative = "stationary")
+```
+
+We see that p-value=0.7037 > 0.05. It means that data is not stationary and we need to use other way.
+
+```{r}
+#depth <- df$Depth_to_Groundwater
+depth <- diff(depth) # make it stationary
+#depth <- df$Depth_to_Groundwater - shift(df$Depth_to_Groundwater, n=1, type = 'shift')
+depth <- na_interpolation(depth, option = "linear")
+adf.test(depth, alternative = "stationary")
+```
+
+As we can see p-value is less than 0.05 that means that we got stationary data
+
+## Predict data
+```{r}
+#this is for test УБРАТЬ
+month<- strftime(df$Date[30], "%m")
+df$Date[30]
+month
+year <- strftime(df$Date[30], "%y")
+year
+day <- strftime(df$Date[30], "%d")
+day
+```
+Get trend, seasonal and noise. Compare with reality
+```{r}
+depth_ts <- ts(depth, start = df$Date[1], frequency=365)
+depth_ts <- diff(depth_ts)
+decomposed_ts <- decompose(depth_ts, type=c("additive"))
+plot( df$Depth_to_Groundwater, ylab = "Real", main="Real", axes=FALSE, type="l")+geom_line()
+plot( decomposed_ts$seasonal, ylab = "Seasonal", main="Seasonal", axes=FALSE, type="l")
+plot( decomposed_ts$trend, ylab = "Trend", main="Trend", axes=FALSE, type="l")
+plot( decomposed_ts$random, ylab = "Random", main="Random", axes=FALSE, type="l")
+```
+As we can see wa have stationary data
+```{r}
+times_dd <- ts(df$Depth_to_Groundwater, start = df$Date[1], frequency=12)
+ggplot_na_distribution(times_dd)
+times_dd <- na_interpolation(times_dd, option="spline")
+ggplot_na_distribution(times_dd)
+plot( times_dd,xlab = "Time", ylab = "Depth_to_Groundwater", main="Depth", axes=FALSE, type="l")
+axis(1,at=seq(df$Date[1], df$Date[length(df$Date)], by="years"),labels=unique(as.character(df$Date, format= "%Y")))
+axis(2)
+box()
+
+plot(depth,type="l", xlab = "Time", ylab = "Depth", main="Depth", axes=FALSE)
+axis(1,at=seq(df$Date[1], df$Date[length(df$Date)], by="years"),labels=unique(as.character(df$Date, format= "%Y")))
+axis(2)
+box()
+```
+
+## Analyse data
+the most convinient and normal is to analyse seasonal
+
+```{r}
+depth_ts <- ts(depth, start = df$Date[1], frequency=365)
+depth_ts <- na_interpolation(depth_ts, option = "linear")
+decomposed_ts <- decompose(depth_ts, type=c("additive"))
+plot( decomposed_ts$seasonal, xlab="Time", ylab = "Seasonal", main="Depth", axes=FALSE, type="l")
+axis(1,at=seq(df$Date[1], df$Date[length(df$Date)], by="month"),labels=unique(as.character(df$Date, format= "%Y-%m")))
+axis(2)
+box()
+```
+
+
+```{r}
+df$Temperature <- na_interpolation(df$Temperature, option = "linear")
+temperature_ts <- ts(df$Temperature, start = df$Date[1], frequency=365)
+decomposed_ts <- decompose(temperature_ts, type=c("additive"))
+plot( decomposed_ts$seasonal, xlab="Time", ylab = "Seasonal", main="Temperature", axes=FALSE, type="l")
+axis(1,at=seq(df$Date[1], df$Date[length(df$Date)], by="month"),labels=unique(as.character(df$Date, format= "%Y-%m")))
+axis(2)
+box()
+```
+
+
+#TODO write analyse results
+#TODO GOOD FOR ANALYSE - add for other parameters!!! 
+```{r}
+plot(depth, type='l')
+```
+
+## Arima model
+We have stationary data so we can use ARIMA model.
+```{r}
+plot( depth,xlab = "Time", ylab = "Depth", main="Depth", axes=FALSE, type="l")
+axis(1,at=seq(df$Date[1], df$Date[length(df$Date)], by="years"),labels=unique(as.character(df$Date, format= "%Y")))
+```
+
+We will build ACF, PACF functions.
+```{r}
+depth_ts <- ts(depth, start = df$Date[1], frequency=365)
+depth_ts %>% ggtsdisplay(main="")
+```
+build in more convinient way graphics for acf and pacf;
+```{r}
+acf(depth_ts)
+pacf(depth_ts)
+```
+
+From the graphics we can suppose that from ACF and adf test q = 16, from PACF - p=13-15. We will variants and find a model with the lowest AICc. Also we will look at residual plots and notice if lag is between threshold values of autocorrelation functions.
+```{r}
+arima_1 <- Arima(depth_ts, order=c(13,1,16))
+arima_1
+tsdisplay(residuals(arima_1), lag.max = 20)
+```
+
+```{r}
+arima <- Arima(depth_ts, order=c(14,1,16))
+arima
+tsdisplay(residuals(arima), lag.max = 20)
+```
+
+```{r}
+arima_3 <- Arima(depth_ts, order=c(15,1,16))
+arima_3
+tsdisplay(residuals(arima_3), lag.max = 20)
+```
+
+We see, that arima (14,1,16) is the best model. 
+
+## Predict data
+Lets predict data
+```{r}
+autoplot(forecast(arima))
+checkresiduals(arima)
+```
+We got predict for our data.If we check residuals we can see that it is white noise. So our model is really correct
+```{r}
+autoplot(forecast(arima))
+checkresiduals(arima)
+arima.predict <- predict(arima,n.ahead=770)
+plot(depth_ts, xlab = "Time (months)", ylab = "Depth prediction in Petrigano")
+```
+
+```{r}
+auto.arima(depth_ts, seasonal=FALSE)
+```
+
+# Cross validation 
+# Testing model
+Now we should test our model.
+```{r}
+hold <- window(depth_ts, start = 4000)
+fit_no_holdout <- arima(depth_ts[-c(4000:4198)], order=c(14,1, 16))
+fcast_no_holdout <- forecast(fit_no_holdout,h=770)
+plot(fcast_no_holdout)
+lines(depth_ts)
+```
+
+We should use cross validation to choose parameters for our model.RMSE, MAE, MAPE will control quantity of our model (one of this funcs is enough)
+One of the most effective methods is sliding window method. It means that on the part of time series from t make predictions to t+n steps forward and count error. Then train our data and predict from t+n to t+2n till the end of the dataset. As a result we will get amount of n that can be put between training data and whole time series data.
+Or we can use Simulated Historical Forecasts, SHF from Prophet that has similar effect. 

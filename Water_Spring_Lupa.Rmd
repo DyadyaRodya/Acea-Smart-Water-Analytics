@@ -8,6 +8,8 @@ output: html_document
 1. Reading data and transform Date from char to Date format
 
 ```{r}
+library(lubridate)
+library(ggplot2)
 
 setwd("E:/prazia/univer/DataScience/Ekz/acea-water-prediction")
 df <- read.csv("Water_Spring_Lupa.csv")
@@ -34,7 +36,6 @@ Here we can see a plot, that shows us an empty parts in our data. So first of al
 2. Data without empty fields
 
 After that I divided data without empty fields into train and test datas. It will be useful for linear regresion model. 
-
 
 
 Next step - I should create a logistic regresion using train data.
@@ -116,166 +117,141 @@ for(i in days)
 ```
 
 
-```{r}
-
-library(tseries)
-library(urca)
-
-result<-ur.df(df$Flow_Rate_Lupa,type = "none",lags=1)
-summary(result)
-
-```
-
-```{r}
-library(ggplot2)
-
-
-significance_level = 0.05
-adf_stat = result@teststat[1]
-p_val = 2.2e-16
-
-crit_val_1 = result@cval[1]
-crit_val_5 = result@cval[2]
-crit_val_10 = result@cval[3]
-
-
-linecolor = 'indianred'
-
-if ((p_val < significance_level) & ((adf_stat < crit_val_1)))
-  linecolor = 'forestgreen' 
-if ((p_val < significance_level) & (adf_stat < crit_val_5))
-  linecolor = 'gold'
-if ((p_val < significance_level) & (adf_stat < crit_val_10))
-  linecolor = 'orange'
-
-ggplot(data=df, aes(x=Date, y=Flow_Rate_Lupa)) + geom_line(color=linecolor)
-
-```
-
-```{r}
-
-result2<-ur.df(df$Rainfall_Terni,type = "none",lags=1)
-summary(result2)
-
-```
 
 
 ```{r}
-
-significance_level = 0.05
-adf_stat = result@teststat[1]
-p_val = 2.2e-16
-
-crit_val_1 = result@cval[1]
-crit_val_5 = result@cval[2]
-crit_val_10 = result@cval[3]
-
-
-linecolor = 'indianred'
-
-if ((p_val < significance_level) & ((adf_stat < crit_val_1)))
-  linecolor = 'forestgreen' 
-if ((p_val < significance_level) & (adf_stat < crit_val_5))
-  linecolor = 'gold'
-if ((p_val < significance_level) & (adf_stat < crit_val_10))
-  linecolor = 'orange'
-
-ggplot(data=df, aes(x=Date, y=Rainfall_Terni)) + geom_line(color=linecolor)
-
-```
-
-```{r}
-
-df['Flow_Rate_Lupa_log'] = log10(abs(df$Flow_Rate_Lupa))
-df['Rainfall_Terni_log'] = log10(abs(df$Rainfall_Terni))
-
-is.na(df['Rainfall_Terni_log'])<-sapply(df['Rainfall_Terni_log'], is.infinite)
-df['Rainfall_Terni_log'][is.na(df['Rainfall_Terni_log'])]<-0
-
-is.na(df['Flow_Rate_Lupa_log'])<-sapply(df['Flow_Rate_Lupa_log'], is.infinite)
-df['Flow_Rate_Lupa_log'][is.na(df['Flow_Rate_Lupa_log'])]<-0
-
-ggplot(data=df, aes(x=Date, y=Flow_Rate_Lupa_log)) + geom_line()
-ggplot(data=df, aes(x=Date, y=Rainfall_Terni_log)) + geom_line()
-
-Flow_Rate_Lupa_log_diff <- diff(df$Flow_Rate_Lupa_log)
-Rainfall_Terni_log_diff <- diff(df$Rainfall_Terni_log)
-
-Flow_Rate_Lupa_log_diff <- append(Flow_Rate_Lupa_log_diff, 0, 0)
-df['Flow_Rate_Lupa_log_diff'] = Flow_Rate_Lupa_log_diff
-Rainfall_Terni_log_diff <- append(Rainfall_Terni_log_diff, 0, 0)
-df['Rainfall_Terni_log_diff'] = Rainfall_Terni_log_diff
-
-ggplot(data=df, aes(x=Date, y=Flow_Rate_Lupa_log_diff)) + geom_line()
-ggplot(data=df, aes(x=Date, y=Rainfall_Terni_log_diff)) + geom_line()
-
-```
-
-
-```{r}
-
-result3<-ur.df(df$Flow_Rate_Lupa_log,type = "none",lags=1)
-summary(result3)
-
-```
-
-
-```{r}
-
-significance_level = 0.05
-adf_stat = result@teststat[1]
-p_val = 2.2e-16
-
-crit_val_1 = result@cval[1]
-crit_val_5 = result@cval[2]
-crit_val_10 = result@cval[3]
-
-
-linecolor = 'indianred'
-
-if ((p_val < significance_level) & ((adf_stat < crit_val_1)))
-  linecolor = 'forestgreen' 
-if ((p_val < significance_level) & (adf_stat < crit_val_5))
-  linecolor = 'gold'
-if ((p_val < significance_level) & (adf_stat < crit_val_10))
-  linecolor = 'orange'
-
-ggplot(data=df, aes(x=Date, y=Flow_Rate_Lupa_log_diff)) + geom_line(color=linecolor)
-
-```
-
-
-```{r}
-
-library(stats)
-
-myts <- ts(df$Rainfall_Terni, start=c(2009, 1, 1), end=c(2020, 30, 6), frequency=52)
-
-decomp = decompose(myts, type='additive')
-
-plot(decomp$trend)
-plot(decomp$seasonal)
-
-```
-
-```{r}
-
 myts <- ts(df$Flow_Rate_Lupa, start=c(2009, 1, 1), end=c(2020, 30, 6), frequency=52)
+```
 
-decomp = decompose(myts, type='additive')
+
+#Augmented Dickey-Fuller (ADF)
+
+If the null hypothesis can be rejected, we can conclude that the time series is stationary.
+
+There are two ways to rejects the null hypothesis:
+
+On the one hand, the null hypothesis can be rejected if the p-value is below a set significance level. The defaults significance level is 5%
+
+**p-value > significance level (default: 0.05)**: Fail to reject the null hypothesis (H0), the data has a unit root and is non-stationary.
+**p-value <= significance level (default: 0.05)**: Reject the null hypothesis (H0), the data does not have a unit root and is stationary.
+On the other hand, the null hypothesis can be rejects if the test statistic is less than the critical value.
+
+```{r}
+library(tseries)
+result4 = adf.test(myts)
+result4
+```
+As we can see from previous test, p_value > 0.05, so we should do transformation and differencing:
+
+```{r}
+
+#myts
+
+jjDataNewLog <- log10(abs(myts) + 1)
+#jjDataNewLogDiff <- diff(jjDataNewLog)
+#jjDataNewLogDiff <- na_interpolation(jjDataNewLogDiff, option = "linear")
+plot(jjDataNewLog)
+
+```
+After this, try again a test:
+```{r}
+result4 = adf.test(jjDataNewLog)
+result4
+```
+```{r}
+
+jjDataNewLog <- sqrt(jjDataNewLog)
+result4 = adf.test(jjDataNewLog)
+result4
+
+```
+
+
+
+We see that p_value is normal, so let's use this data
+
+```{r}
+decomp = decompose(jjDataNewLog, type='additive')
 
 plot(decomp$trend)
 plot(decomp$seasonal)
 
 ```
 
+Split our data in train and test and try acf and pacf test for our data:
+
+```{r}
+library(TSstudio)
+
+split_USgas <- ts_split(ts.obj = jjDataNewLog, 130)
+
+plot(split_USgas$train)
+plot(split_USgas$test)
+
+acf(jjDataNewLog)
+pacf(jjDataNewLog)
+```
+
+Using coefficients (1,1,8) for ARIMA we will test it.
+
+```{r}
+library(forecast)
+
+auto.arima(split_USgas$train, trace=TRUE) 
+
+fit <- arima(split_USgas$train, order = c(1,1,8))
+print(paste('ARIMA(1,1,8) - AICc: ', round(fit$aic,2)))
+fit.test1 <- arima(split_USgas$train, order = c(1,1,9))
+print(paste('ARIMA(1,1,9) - AICc: ', round(fit.test1$aic,2)))
+fit.test2 <- arima(split_USgas$train, order = c(1,1,10))
+print(paste('ARIMA(1,1,10) - AICc: ', round(fit.test2$aic,2)))
+fit.test3 <- arima(split_USgas$train, order = c(0,1,8))
+print(paste('ARIMA(0,1,8) - AICc: ', round(fit.test3$aic,2)))
+fit.test4 <- arima(split_USgas$train, order = c(0,1,9))
+print(paste('ARIMA(0,1,9) - AICc: ', round(fit.test4$aic,2)))
+
+```
+After testing, we understood that fit.test3 is good for this data
 
 ```{r}
 
-acf(df$Flow_Rate_Lupa_log_diff)
-pacf(df$Flow_Rate_Lupa_log_diff)
+checkresiduals(fit.test3)
+tsdisplay(residuals(fit.test3), lag.max = 20)
 
 ```
+
+try to predict data, using our model
+
+```{r}
+
+newdata2 <-forecast(fit.test3, h = 390, type="response")
+plot(split_USgas$train)
+plot(newdata2)
+
+
+clrs <- c("blue", "red")
+autoplot(split_USgas$train) +
+  autolayer(newdata2,
+    series="Forecast", PI=FALSE) +
+  autolayer(split_USgas$test,
+    series="Test", PI=FALSE) +
+  ggtitle("Forecastsing") +
+  xlab("Year") + ylab("Megalitres") +
+  guides(colour=guide_legend(title="Forecast"))+
+      scale_color_manual(values=clrs)
+
+autoplot(newdata2) +
+  autolayer(split_USgas$test,
+    series="Test", PI=FALSE) +
+  ggtitle("Forecastsing") +
+  xlab("Year") + ylab("Megalitres") +
+  guides(colour=guide_legend(title="Forecast"))+
+      scale_color_manual(values=clrs)
+
+
+```
+
+try to predict data, using forecast methods
 
 ```{r}
 
@@ -301,18 +277,24 @@ autoplot(split_USgas$train) +
   guides(colour=guide_legend(title="Forecast"))
 
 ```
+So our model shows us better results, than forecast methods
 
+
+In the end we are doing a crossvalidation:
 ```{r}
-#auto.arima(split_USgas$train, trace=TRUE) 
 
-library(forecast)
-fit <- Arima(split_USgas$train, order = c(0,1,1), include.drift = TRUE)
-summary(fit)
+#Fit an AR(2) model to each rolling origin subset
+far2 <- function(x, h){forecast(fit.test4, h=h)}
+#e <- tsCV(split_USgas$train, far2, h=1)
+#plot(e)
 
-futurVal <- forecast(fit,h=130, level=c(99.5))
-plot(futurVal)
-
+#Fit the same model with a rolling window of length 30
+e <- tsCV(split_USgas$train, far2, h=1)
+e1 <- tsCV(split_USgas$test, far2, h=1)
+autoplot(e) + autolayer(split_USgas$test) + autolayer(split_USgas$train) + autolayer(e1)
 ```
+
+
 
 
 

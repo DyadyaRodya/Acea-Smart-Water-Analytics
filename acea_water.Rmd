@@ -42,6 +42,7 @@ library('stats')
 library('nlme')
 library('fpp')
 library('lubridate')
+library('TSstudio')
 ```
 
 ### Data preparation
@@ -309,8 +310,8 @@ checkresiduals(arima)
 auto.arima(depth_ts, seasonal=FALSE)
 ```
 
-# Cross validation 
-# Testing model
+
+## Testing model
 Now we should test our model. From the graphic we see that all predicted values are in confidence interval. 
 ```{r}
 hold <- window(depth_ts, start = 4000)
@@ -320,7 +321,35 @@ plot(fcast_no_holdout)
 lines(depth_ts[c(4000:4198)])
 ```
 
-
+## Cross validation 
 We should use cross validation to choose parameters for our model.RMSE, MAE, MAPE will control quantity of our model (one of this funcs is enough)
 One of the most effective methods is sliding window method. It means that on the part of time series from t make predictions to t+n steps forward and count error. Then train our data and predict from t+n to t+2n till the end of the dataset. As a result we will get amount of n that can be put between training data and whole time series data.
 Or we can use Simulated Historical Forecasts, SHF from Prophet that has similar effect. 
+```{r}
+#Fit an AR(14) model to each rolling origin subset
+far14 <- function(x, h){forecast(Arima(x, order=c(14,1,16)), h=h)}
+e <- tsCV(lynx, far14, h=1)
+
+#Fit the same model with a rolling window of length 30
+e <- tsCV(lynx, far14, h=1, window=30)
+
+#Example with exogenous predictors
+far14_xreg <- function(x, h, xreg, newxreg) {
+  forecast(Arima(x, order=c(14,1,16), xreg=xreg), xreg=newxreg)
+}
+
+y <- ts(rnorm(50))
+xreg <- matrix(rnorm(100),ncol=2)
+e <- tsCV(y, far14_xreg, h=3, xreg=xreg)
+```
+
+```{r}
+splitted <- ts_split(ts.obj = depth_ts, 500)
+plot(splitted$train)
+far2 <- function(x, h){forecast(arima, h=h)}
+e <- tsCV(splitted$train, far2, h=1)
+e1 <- tsCV(splitted$test, far2, h=1)
+autoplot(e) + autolayer(splitted$test) + autolayer(splitted$train) + autolayer(e1)
+```
+
+From the picture we see that predicted data is so close to real, that even all data as in one line.

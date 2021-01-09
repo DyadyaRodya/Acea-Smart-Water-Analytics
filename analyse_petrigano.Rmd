@@ -1,0 +1,120 @@
+---
+title: "analyse_petrigano"
+author: "Anastasia Khudoyarova"
+date: "09 01 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Aquifer
+## Petrignano
+### Data preparation
+```{r}
+df <- as.data.frame(read.table('./acea-water-prediction/Aquifer_Petrignano.csv', header = TRUE, sep=','))
+head(df, n=20)
+```
+
+
+Remove NA elements from data 
+```{r}
+df <- df[complete.cases(df$Rainfall_Bastia_Umbra),]
+rownames(df) <- 1:nrow(df)
+head(df, n=20)
+```
+```{r}
+df <- subset(df, select = -c(Depth_to_Groundwater_P25, Temperature_Petrignano ))
+colnames(df) <- c("Date", "Rainfall", "Depth_to_Groundwater","Temperature", " Volume", " Hydrometry" )
+head(df, n=20)
+```
+
+Plot data
+```{r, message=FALSE}
+library('ggplot2')
+library('forecast')
+library('zoo')
+library('dplyr')
+library('data.table')
+library('imputeTS')
+library('xts')
+library('tseries')
+library('stats')
+library('nlme')
+library('fpp')
+library('lubridate')
+library('TSstudio')
+```
+
+### Data preparation
+```{r}
+# sort by date
+df$Date <- as.Date(df$Date, format= "%d/%m/%Y")
+df <- df[order(df$Date), ]
+interval = df$Date - shift(df$Date, n=1, fill=NA, type="lag")
+```
+```{r}
+for(i in interval)
+{
+  
+  if(isTRUE(i > 1) || is.null(i))
+  {
+    print(i)
+  }
+    
+}
+```
+
+
+```{r}
+depth <- na_interpolation(df$Depth_to_Groundwater, option = "linear")
+depth_ts <- ts(depth, start = df$Date[1], frequency=12)
+depth_ts <- diff(depth_ts)
+```
+
+```{r}
+ts_seasonal(depth_ts, type = "all")
+ts_plot(depth_ts)
+```
+
+we can make some decisions from the seasonalty.
+
+As we can see the minimum value of the depth is in November,December.
+
+```{r}
+rainfall <- na_interpolation(df$Rainfall, option = "linear")
+rainfall_ts <- ts(rainfall, start = df$Date[1], frequency=12)
+rainfall_ts <- diff(rainfall_ts)
+ts_seasonal(rainfall_ts, type = "all")
+```
+
+```{r}
+temperature <- na_interpolation(df$Temperature, option = "linear")
+temperature_ts <- ts(temperature, start = df$Date[1], frequency=12)
+temperature_ts <- diff(temperature_ts)
+ts_seasonal(temperature_ts, type = "all")
+```
+
+From the plot we can see that the maximum temperature was in August, minimum in December
+
+```{r}
+volume <- na_interpolation(df$` Volume`, option = "linear")
+volume_ts <- ts(volume, start = df$Date[1], frequency=12)
+volume_ts <- diff(volume_ts)
+ts_seasonal(volume_ts, type = "all")
+```
+
+Maximum volume was in March, minimum in December
+
+```{r}
+hydrometry <- na_interpolation(df$` Hydrometry`, option = "linear")
+hydrometry_ts <- ts(hydrometry, start = df$Date[1], frequency=12)
+hydrometry_ts <- diff(hydrometry_ts)
+ts_seasonal(hydrometry_ts, type = "all")
+```
+
+Maximum in August, minimum in January.
+
+The volume and hydrometry reached their minimum around the same time
+

@@ -8,7 +8,6 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
 ```
 
 
@@ -127,7 +126,7 @@ Now we need to determine p.
 ```{r}
 y <- cbind(ts_Flow_Rate, ts_Lake_Level)
 colnames(y)<-cbind("Flow_Rate", "Lake_Level")
-y[1,2]=0
+#y[1,2]=mean(y[,2])
 x <- cbind(ts_Rainfall_Cavallina, ts_Rainfall_Le_Croci, ts_Rainfall_Mangona, ts_Rainfall_S_Agata, ts_Rainfall_S_Piero, ts_Temperature_Le_Croci)
 colnames(x)<-cbind("Rainfall_Cavallina", "Rainfall_Le_Croci", "Rainfall_Mangona", "Rainfall_S_Agata", "Rainfall_S_Piero", "Temperature_Le_Croci")
 lagselect <- VARselect(y=y, type = "const", exogen = x)
@@ -178,3 +177,8 @@ errors <- abs(check[,1]-test_y[,2])
 summary(errors)
 ```
 Closer to x=y line. But can be better... Also try it later.
+
+
+```{r}
+
+```

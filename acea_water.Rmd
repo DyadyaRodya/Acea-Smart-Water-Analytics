@@ -47,12 +47,23 @@ library('lubridate')
 ### Data preparation
 ```{r}
 # sort by date
-arrange(df, df$Date)
-# count difference. Difference must be the same because it is need for time series
 df$Date <- as.Date(df$Date, format= "%d/%m/%Y")
-interval <- difftime(df$Date, shift(df$Date, n=1, type = 'lag'), units="days")
+df <- df[order(df$Date), ]
+interval = df$Date - shift(df$Date, n=1, fill=NA, type="lag")
+```
+```{r}
+for(i in interval)
+{
+  
+  if(isTRUE(i > 1) || is.null(i))
+  {
+    print(i)
+  }
+    
+}
 ```
 
+As we can see, everything is okey with interval.
 
 ```{r}
 # find that there are some missing values in data set

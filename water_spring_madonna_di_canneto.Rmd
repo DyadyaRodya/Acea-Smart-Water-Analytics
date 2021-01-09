@@ -1,0 +1,279 @@
+---
+title: "Water_Spring_Madonna_di_Canneto"
+author: "Yulian Volianskiy"
+date: "08 01 2021"
+output: html_document
+---
+
+```{r}
+library(lubridate)
+library(ggplot2)
+
+setwd("E:/prazia/univer/DataScience/Ekz/acea-water-prediction")
+df <- read.csv("Water_Spring_Madonna_di_Canneto.csv")
+
+df$п.їDate = strptime(df$п.їDate, "%d/%m/%Y")
+df$Date <- ymd(df$п.їDate)
+ggplot(data=df, aes(x=Date, y=df$Flow_Rate_Madonna_di_Canneto)) + geom_line()
+ggplot(data=df, aes(x=Date, y=df$Rainfall_Settefrati)) + geom_line()
+ggplot(data=df, aes(x=Date, y=df$Temperature_Settefrati)) + geom_line()
+head(df)
+
+```
+
+
+```{r}
+df <- head(df, 3104)
+```
+
+
+```{r}
+
+df$Rainfall_Settefrati <- na.interpolation(df$Rainfall_Settefrati, option = "spline")
+ggplot(data=df, aes(x=Date, y=df$Flow_Rate_Madonna_di_Canneto)) + geom_line()
+ggplot(data=df, aes(x=Date, y=df$Rainfall_Settefrati)) + geom_line()
+ggplot(data=df, aes(x=Date, y=df$Temperature_Settefrati)) + geom_line()
+
+write.csv(df[,c("Rainfall_Settefrati","Temperature_Settefrati", "Flow_Rate_Madonna_di_Canneto", "Date")], "r3.csv", na = "")
+
+```
+
+
+```{r}
+
+df$Temperature_Settefrati <- na.interpolation(df$Temperature_Settefrati, option = "spline")
+ggplot(data=df, aes(x=Date, y=df$Flow_Rate_Madonna_di_Canneto)) + geom_line()
+ggplot(data=df, aes(x=Date, y=df$Rainfall_Settefrati)) + geom_line()
+ggplot(data=df, aes(x=Date, y=df$Temperature_Settefrati)) + geom_line()
+
+write.csv(df[,c("Rainfall_Settefrati","Temperature_Settefrati", "Flow_Rate_Madonna_di_Canneto", "Date")], "r3.csv", na = "")
+
+```
+
+
+
+```{r}
+
+df.test <- read.csv("csv_r3.csv")
+df.train <- read.csv("csv_r4.csv")
+
+head(df.test)
+head(df.train)
+
+df.train$log_flow <- log10(df.train$flow_rate_madonna_di_canneto)
+head(df.train)
+
+hexbinplot(log_flow ~ df.train$temperature_settefrati, data=df.train)
+
+hexbinplot(log_flow ~ df.train$rainfall_settefrati, data=df.train)
+
+```
+```{r}
+
+lmDf1 = lm(log_flow ~ df.train$rainfall_settefrati, data = df.train) #Create the linear regression
+summary(lmDf1)
+
+```
+```{r}
+
+lmDf2 = lm(log_flow ~ df.train$temperature_settefrati, data = df.train) #Create the linear regression
+summary(lmDf2)
+
+```
+
+
+
+```{r}
+
+lmDf = lm(log_flow ~ df.train$temperature_settefrati + df.train$rainfall_settefrati, data = df.train) #Create the linear regression
+summary(lmDf)
+
+```
+
+```{r}
+
+df.train1 <- tail(df.train, 387)
+df.train2 <- head(df.train, 1000)
+
+lmDf3 = lm(df.train2$log_flow ~ df.train2$rainfall_settefrati, data = df.train2) #Create the linear regression
+summary(lmDf3)
+
+```
+```{r}
+library(arules)
+df.train1$log2 <- head(predict(lmDf3, newdata = df.train1), 387)
+
+ggplot(data=df.train1, aes(x=df.train1$rainfall_settefrati, y=df.train1$log_flow)) + geom_line(aes(y = df.train1$log2), color = "darkred") + geom_line()
+
+```
+
+
+```{r}
+
+df$Flow_Rate_Madonna_di_Canneto <- na.interpolation(df$Flow_Rate_Madonna_di_Canneto, option = "spline")
+ggplot(data=df, aes(x=Date, y=df$Flow_Rate_Madonna_di_Canneto)) + geom_line()
+ggplot(data=df, aes(x=Date, y=df$Rainfall_Settefrati)) + geom_line()
+ggplot(data=df, aes(x=Date, y=df$Temperature_Settefrati)) + geom_line()
+
+```
+
+```{r}
+
+df <- df[order(df$Date), ]
+df['Time_Interval'] = df$Date - shift(df$Date, n=1, fill=NA, type="lag")
+
+```
+
+
+```{r}
+
+days <- df$Time_Interval
+
+
+for(i in days)
+{
+  
+  if(isTRUE(i > 1) || is.null(i))
+  {
+    print(i)
+  }
+    
+}
+
+```
+
+
+```{r}
+
+myts <- ts(log(df$Flow_Rate_Madonna_di_Canneto + 1), start=c(2012, 1, 1), end=c(2020, 30, 6), frequency=52)
+
+```
+
+```{r}
+library(tseries)
+result4 = adf.test(myts)
+result4
+
+decomp = decompose(myts, type='additive')
+
+plot(decomp$trend)
+plot(decomp$seasonal)
+```
+
+```{r}
+
+myts <- diff(myts)
+
+result4 = adf.test(myts)
+result4
+
+```
+
+```{r}
+
+#df$Date <- ymd(df$п.їDate)
+#myts <- ts(diff(log(df$Flow_Rate_Madonna_di_Canneto)), start=c(2012, 1, 1), end=c(2020, 30, 6), frequency=52)
+
+```
+
+
+```{r}
+
+result4 = adf.test(myts)
+result4
+
+decomp = decompose(myts, type='additive')
+
+plot(decomp$trend)
+plot(decomp$seasonal)
+```
+
+```{r}
+#myts <- sqrt(abs(myts))
+
+result4 = adf.test(myts)
+result4
+
+decomp = decompose(myts, type='additive')
+
+plot(decomp$trend)
+plot(decomp$seasonal)
+
+
+```
+
+
+```{r}
+
+library(TSstudio)
+
+split_USgas <- ts_split(ts.obj = myts, 200)
+
+plot(split_USgas$train)
+plot(split_USgas$test)
+
+acf(split_USgas$train)
+pacf(split_USgas$train)
+```
+
+```{r}
+
+library(forecast)
+
+auto.arima(split_USgas$train, trace=TRUE) 
+
+fit <- arima(split_USgas$train, order = c(1,1,7))
+print(paste('ARIMA(1,1,14) - AICc: ', round(fit$aic,2)))
+fit.test1 <- arima(split_USgas$train, order = c(1,1,8))
+print(paste('ARIMA(1,1,15) - AICc: ', round(fit.test1$aic,2)))
+fit.test2 <- arima(split_USgas$train, order = c(1,1,9))
+print(paste('ARIMA(1,1,13) - AICc: ', round(fit.test2$aic,2)))
+fit.test3 <- arima(split_USgas$train, order = c(0,1,7))
+print(paste('ARIMA(0,1,14) - AICc: ', round(fit.test3$aic,2)))
+fit.test4 <- arima(split_USgas$train, order = c(0,1,8))
+print(paste('ARIMA(0,1,15) - AICc: ', round(fit.test4$aic,2)))
+
+```
+```{r}
+fit.test6 <- arima(split_USgas$train, order = c(0,1,7))
+print(paste('ARIMA(0,1,14) - AICc: ', round(fit.test6$aic,2)))
+
+checkresiduals(fit.test6)
+tsdisplay(residuals(fit.test6), lag.max = 20)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,180 @@
+---
+title: "Lake Bilancio"
+author: "Rodion Sharafiev"
+date: "08 01 2021"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+
+```{r}
+setwd("C:\\Users\\rsharafiev\\DS\\exam\\Acea-Smart-Water-Analytics")
+library(lubridate)
+library(ggplot2)
+library(imputeTS)
+library(data.table)
+library(tseries)
+library(urca)
+library(aTSA)
+library(TSstudio)
+library(forecast)
+library(vars)
+df <- read.csv("Lake_Bilancino.csv")
+```
+
+
+Our features are Rainfall_S_Piero, Rainfall_Mangona, Rainfall_S_Agata, Rainfall_Cavallina, Rainfall_Le_Croci, Temperature_Le_Croci.
+Output Lake_Level and Flow_Rate.
+
+
+```{r }
+df$п.їDate = strptime(df$п.їDate, "%d/%m/%Y")
+df$Date <- ymd(df$п.їDate)
+```
+#Some checks for data
+
+Is date ordered and there are no any missing days?
+```{r}
+df <- df[order(df$Date), ]
+df['Interval']=df$Date - shift(df$Date, n=1, fill=NA, type="lag")
+days <- df$Interval
+
+for(i in days)
+{
+  
+  if(isTRUE(i > 1) || is.null(i))
+  {
+    print(i)
+  }
+    
+}
+df<-df[,2:10]
+```
+Yes. Also we will save only our date.
+
+Let's see sum summaries.
+```{r }
+
+summary(df)
+summary(df[1:578,])
+```
+We see that first 578 records have are useless for us (no data about rainfall, temperature and missing values for flow rate).
+So we don't need them any more.
+```{r }
+df <- df[579:6603,]
+summary(df)
+```
+Let's check stationary and make some transformations.
+```{r}
+ts_Flow_Rate <- ts(df$Flow_Rate, start=c(2004,2), frequency = 365.25)
+plot(ts_Flow_Rate)
+adf.test(ts_Flow_Rate)
+ts_Flow_Rate <- log(ts(df$Flow_Rate+1, start=c(2004,2), frequency = 365.25))
+plot(ts_Flow_Rate)
+adf.test(ts_Flow_Rate)
+```
+```{r}
+ts_Lake_Level <- ts(df$Lake_Level, start=c(2004,2), frequency = 365.25)
+plot(ts_Lake_Level)
+adf.test(ts_Lake_Level)
+ts_Lake_Level<-log10(ts_Lake_Level)
+plot(ts_Lake_Level)
+adf.test(ts_Lake_Level)
+```
+```{r}
+ts_Rainfall_S_Piero <- ts(df$Rainfall_S_Piero, start=c(2004,2), frequency = 365.25)
+plot(ts_Rainfall_S_Piero)
+result = adf.test(ts_Rainfall_S_Piero)
+
+```
+```{r}
+ts_Rainfall_Mangona <- ts(df$Rainfall_Mangona, start=c(2004,2), frequency = 365.25)
+plot(ts_Rainfall_Mangona)
+result = adf.test(ts_Rainfall_Mangona)
+
+```
+```{r}
+ts_Rainfall_S_Agata <- ts(df$Rainfall_S_Agata, start=c(2004,2), frequency = 365.25)
+plot(ts_Rainfall_S_Agata)
+
+```
+```{r}
+ts_Rainfall_Cavallina <- ts(df$Rainfall_Cavallina, start=c(2004,2), frequency = 365.25)
+plot(ts_Rainfall_Cavallina)
+result = adf.test(ts_Rainfall_Cavallina)
+
+```
+```{r}
+ts_Rainfall_Le_Croci <- ts(df$Rainfall_Le_Croci, start=c(2004,2), frequency = 365.25)
+plot(ts_Rainfall_Le_Croci)
+result = adf.test(ts_Rainfall_Le_Croci)
+
+```
+```{r}
+ts_Temperature_Le_Croci <- ts(df$Temperature_Le_Croci, start=c(2004,2), frequency = 365.25)
+plot(ts_Temperature_Le_Croci)
+result = adf.test(ts_Temperature_Le_Croci)
+
+```
+
+Now we need to determine p.
+```{r}
+y <- cbind(ts_Flow_Rate, ts_Lake_Level)
+colnames(y)<-cbind("Flow_Rate", "Lake_Level")
+y[1,2]=0
+x <- cbind(ts_Rainfall_Cavallina, ts_Rainfall_Le_Croci, ts_Rainfall_Mangona, ts_Rainfall_S_Agata, ts_Rainfall_S_Piero, ts_Temperature_Le_Croci)
+colnames(x)<-cbind("Rainfall_Cavallina", "Rainfall_Le_Croci", "Rainfall_Mangona", "Rainfall_S_Agata", "Rainfall_S_Piero", "Temperature_Le_Croci")
+lagselect <- VARselect(y=y, type = "const", exogen = x)
+lagselect$selection
+```
+We will use AIC's p=5.
+Prepare some train and test data.
+```{r}
+train_y <- y[1:4000,]
+train_x <- x[1:4000,]
+test_y <- y[4001:6025,]
+test_x <- x[4001:6025,]
+```
+
+Create model with p=5.
+```{r}
+Model1 <- VAR(train_y, p = 5, type = "const",  exogen = train_x)
+summary(Model1)
+```
+P-value, R-squared and F-static are good.
+
+Let's try to predict values.
+```{r}
+pred_y <- predict(Model1, n.ahead =2025, dumvar=test_x, ci=0.95)
+
+```
+
+Visualize test data and prediction.
+```{r}
+
+plot(y)
+plot(pred_y)
+```
+Let's compare and calculate mistakes.
+```{r}
+
+check<-pred_y$fcst$Flow_Rate
+plot(check[,1]~test_y[,1])
+errors <- abs(check[,1]-test_y[,1])
+summary(errors)
+
+```
+It can be better... OK, try something new later.
+```{r}
+check<-pred_y$fcst$Lake_Level
+plot(check[,1]~test_y[,2])
+errors <- abs(check[,1]-test_y[,2])
+summary(errors)
+```
+Closer to x=y line. But can be better... Also try it later.

@@ -1,10 +1,9 @@
 ---
-title: "Lake Bilancio"
+title: '1'
 author: "Rodion Sharafiev"
-date: "08 01 2021"
+date: "10 01 2021"
 output: html_document
 ---
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -18,11 +17,6 @@ library(lubridate)
 library(data.table)
 library(aTSA)
 library(vars)
-#library(tseries)
-#library(urca)
-#library(TSstudio)
-#library(forecast)
-#library(imputeTS)
 df <- read.csv("Lake_Bilancino.csv")
 ```
 
@@ -100,7 +94,7 @@ result = adf.test(ts_Rainfall_Mangona)
 ```{r}
 ts_Rainfall_S_Agata <- ts(df$Rainfall_S_Agata, start=c(2004,2), frequency = 365.25)
 plot(ts_Rainfall_S_Agata)
-result = adf.test(ts_Rainfall_S_Agata)
+
 ```
 ```{r}
 ts_Rainfall_Cavallina <- ts(df$Rainfall_Cavallina, start=c(2004,2), frequency = 365.25)
@@ -121,97 +115,12 @@ result = adf.test(ts_Temperature_Le_Croci)
 
 ```
 
-Now we need to determine p.
-```{r}
-y <- cbind(ts_Flow_Rate, ts_Lake_Level)
-colnames(y)<-cbind("Flow_Rate", "Lake_Level")
-
-x <- cbind(ts_Rainfall_Cavallina, ts_Rainfall_Le_Croci, ts_Rainfall_Mangona, ts_Rainfall_S_Agata, ts_Rainfall_S_Piero, ts_Temperature_Le_Croci)
-colnames(x)<-cbind("Rainfall_Cavallina", "Rainfall_Le_Croci", "Rainfall_Mangona", "Rainfall_S_Agata", "Rainfall_S_Piero", "Temperature_Le_Croci")
-lagselect <- VARselect(y=y, type = "const", exogen = x)
-lagselect$selection
-```
-We will use AIC's p=5.
-Prepare some train and test data.
-```{r}
-border <- length(y[,1])-2*365
-train_y <- y[1:border,]
-train_x <- x[1:border,]
-test_y <- y[(border+1):6025,]
-test_x <- x[(border+1):6025,]
-```
-
-Create model with p=5.
-```{r}
-Model1 <- VAR(train_y, p = 5, type = "const",  exogen = train_x)
-summary(Model1)
-```
-P-value, R-squared and F-static are good.
-
-Let's try to predict values.
-```{r}
-pred_y <- predict(Model1, n.ahead =2*365, dumvar=test_x, ci=0.95)
-
-```
-
-Visualize test data and prediction.
-```{r}
-
-plot(y)
-plot(pred_y)
-```
-
-
-
-
-
-
-
-
-
-```{r}
-cross_val <- function(x, y, p) {
-  max <- length(y[,1])
-  border <- max-2*365
-  pred_length <- 3
-  errors_Flow=0
-  errors_Level=0
-  measures = 0
-  while (border+pred_length <= max) {
-    train_y <- y[1:border,]
-    train_x <- x[1:border,]
-    test_y <- y[(border+1):(border+pred_length),]
-    test_x <- x[(border+1):(border+pred_length),]
-    test_Model <- VAR(train_y, p = p, type = "const",  exogen = train_x)
-    pred_y <- predict(test_Model, n.ahead = pred_length, dumvar=test_x, ci=0.95)
-    check<-pred_y$fcst$Flow_Rate
-    errors_Flow <- sum((check[,1]-test_y[,1])^2)+errors_Flow
-    check<-pred_y$fcst$Lake_Level
-    errors_Level <- sum((check[,1]-test_y[,2])^2)+errors_Level
-    measures=measures + 3
-    border=border+pred_length
-  }
-  RMSE_Flow = sqrt(errors_Flow/measures)
-  RMSE_Level = sqrt(errors_Level/measures)
-  c(RMSE_Flow,RMSE_Level)
-}
-```
-
-
-```{r}
-p=5
-cross_val(x,y,p)
-```
-
-
-But y depend on x with lag, so let's try lag of 1  day.
-
 ```{r}
 y_1 <- cbind(ts_Flow_Rate, ts_Lake_Level)
 colnames(y_1)<-cbind("Flow_Rate", "Lake_Level")
 
-x_1 <- cbind(shift(ts_Rainfall_Cavallina), shift(ts_Rainfall_Le_Croci), shift(ts_Rainfall_Mangona), shift(ts_Rainfall_S_Agata), shift(ts_Rainfall_S_Piero), shift(ts_Temperature_Le_Croci))
-colnames(x_1)<-cbind("Rainfall_Cavallina", "Rainfall_Le_Croci", "Rainfall_Mangona", "Rainfall_S_Agata", "Rainfall_S_Piero", "Temperature_Le_Croci")
+x_1 <- cbind(ts_Rainfall_Cavallina, ts_Rainfall_Le_Croci, ts_Rainfall_Mangona, ts_Rainfall_S_Agata, ts_Rainfall_S_Piero, ts_Temperature_Le_Croci, shift(ts_Rainfall_Cavallina), shift(ts_Rainfall_Le_Croci), shift(ts_Rainfall_Mangona), shift(ts_Rainfall_S_Agata), shift(ts_Rainfall_S_Piero),shift(ts_Temperature_Le_Croci),shift(ts_Rainfall_Cavallina, n=2L), shift(ts_Rainfall_Le_Croci, n=2L), shift(ts_Rainfall_Mangona, n=2L), shift(ts_Rainfall_S_Agata, n=2L), shift(ts_Rainfall_S_Piero, n=2L),shift(ts_Temperature_Le_Croci, n=2L))
+colnames(x_1)<-cbind("Rainfall_Cavallina", "Rainfall_Le_Croci", "Rainfall_Mangona", "Rainfall_S_Agata", "Rainfall_S_Piero", "Temperature_Le_Croci","Rainfall_Cavallina_1", "Rainfall_Le_Croci_1", "Rainfall_Mangona_1", "Rainfall_S_Agata_1", "Rainfall_S_Piero_1","Temperature_Le_Croci_1","Rainfall_Cavallina_2", "Rainfall_Le_Croci_2", "Rainfall_Mangona_2", "Rainfall_S_Agata_2", "Rainfall_S_Piero_2","Temperature_Le_Croci_2")
 
 lagselect <- VARselect(y=y_1, type = "const", exogen = x_1)
 lagselect$selection
@@ -220,21 +129,22 @@ Now p is 6.
 
 Let's try to predict values.
 ```{r}
-train_y <- y_1[2:(border-1),]
-train_x <- x_1[2:(border-1),]
-test_y <- y_1[border:6024,]
-test_x <- x_1[border:6024,]
+border <- length(y_1[,1])-2-2*365
+train_y <- y_1[3:border,]
+train_x <- x_1[3:border,]
+test_y <- y_1[(border+1):6023,]
+test_x <- x_1[(border+1):6023,]
 
 
 ```
 
 ```{r}
-Model2 <- VAR(train_y, p = 6, type = "const",  exogen = train_x)
-summary(Model2)
+Model4 <- VAR(train_y, p = 6, type = "const",  exogen = train_x)
+summary(Model4)
 ```
-
+P-value, R-squared and F-static are good.
 ```{r}
-pred_y <- predict(Model2, n.ahead =2*365, dumvar=test_x, ci=0.95)
+pred_y <- predict(Model4, n.ahead =2*365, dumvar=test_x, ci=0.95)
 ```
 
 
@@ -247,94 +157,8 @@ plot(y_1)
 plot(pred_y)
 ```
 
-
 ```{r}
-cross_val_1 <- function(x, y, p) {
-  max <- length(y[,1])-1
-  border <- max-2*365
-  pred_length <- 3
-  errors_Flow=0
-  errors_Level=0
-  measures = 0
-  while (border+pred_length <= max) {
-    train_y <- y[2:border,]
-    train_x <- x[2:border,]
-    test_y <- y[(border+1):(border+pred_length),]
-    test_x <- x[(border+1):(border+pred_length),]
-    test_Model <- VAR(train_y, p = p, type = "const",  exogen = train_x)
-    pred_y <- predict(test_Model, n.ahead = pred_length, dumvar=test_x, ci=0.95)
-    check<-pred_y$fcst$Flow_Rate
-    errors_Flow <- sum((check[,1]-test_y[,1])^2)+errors_Flow
-    check<-pred_y$fcst$Lake_Level
-    errors_Level <- sum((check[,1]-test_y[,2])^2)+errors_Level
-    measures=measures + 3
-    border=border+pred_length
-  }
-  RMSE_Flow = sqrt(errors_Flow/measures)
-  RMSE_Level = sqrt(errors_Level/measures)
-  c(RMSE_Flow,RMSE_Level)
-}
-```
-
-```{r}
-p=6
-cross_val_1(x_1,y_1,p)
-```
-
-
-
-
-
-
-
-
-So let's try lag of 2  day.
-
-```{r}
-y_2 <- cbind(ts_Flow_Rate, ts_Lake_Level)
-colnames(y_2)<-cbind("Flow_Rate", "Lake_Level")
-
-x_2 <- cbind(shift(ts_Rainfall_Cavallina, n=2L), shift(ts_Rainfall_Le_Croci, n=2L), shift(ts_Rainfall_Mangona, n=2L), shift(ts_Rainfall_S_Agata, n=2L), shift(ts_Rainfall_S_Piero, n=2L), shift(ts_Temperature_Le_Croci, n=2L))
-colnames(x_2)<-cbind("Rainfall_Cavallina", "Rainfall_Le_Croci", "Rainfall_Mangona", "Rainfall_S_Agata", "Rainfall_S_Piero", "Temperature_Le_Croci")
-
-lagselect <- VARselect(y=y_2, type = "const", exogen = x_2)
-lagselect$selection
-```
-Now p is 5.
-Let's try to predict values.
-```{r}
-train_y <- y_2[3:(border-2),]
-train_x <- x_2[3:(border-2),]
-test_y <- y_2[(border-1):6023,]
-test_x <- x_2[(border-1):6023,]
-
-
-```
-
-```{r}
-Model3 <- VAR(train_y, p = 5, type = "const",  exogen = train_x)
-summary(Model3)
-```
-P-value, R-squared and F-static are good.
-
-Let's try to predict values.
-```{r}
-
-pred_y <- predict(Model3, n.ahead =2*365, dumvar=test_x, ci=0.95)
-
-```
-
-Visualize test data and prediction.
-```{r}
-
-plot(y_2)
-plot(pred_y)
-```
-
-
-
-```{r}
-cross_val_2 <- function(x, y, p) {
+cross_val_3 <- function(x, y, p) {
   max <- length(y[,1])-2
   border <- max-2*365
   pred_length <- 3
@@ -362,24 +186,38 @@ cross_val_2 <- function(x, y, p) {
 ```
 
 ```{r}
-p=6
-cross_val_2(x_2,y_2,p)
+cross_val_4 <- function(x, y, p) {
+  max <- length(y[,1])-2
+  border <- max-2*365
+  pred_length <- 3
+  errors_Flow=0
+  errors_Level=0
+  measures = 0
+  while (border+pred_length <= max) {
+    train_y <- y[3:border,]
+    train_x <- x[3:border,]
+    test_y <- y[(border+1):(border+pred_length),]
+    test_x <- x[(border+1):(border+pred_length),]
+    test_Model <- VAR(train_y, p = p, type = "const",  exogen = train_x)
+    pred_y <- predict(test_Model, n.ahead = pred_length, dumvar=test_x, ci=0.95)
+    check<-pred_y$fcst$Flow_Rate
+    errors_Flow <- sum((exp(check[,1])-exp(test_y[,1]))^2)+errors_Flow
+    check<-pred_y$fcst$Lake_Level
+    errors_Level <- sum((10^check[,1]-10^test_y[,2])^2)+errors_Level
+    measures=measures + 3
+    border=border+pred_length
+  }
+  RMSE_Flow = sqrt(errors_Flow/measures)
+  RMSE_Level = sqrt(errors_Level/measures)
+  c(RMSE_Flow,RMSE_Level)
+}
 ```
 
+```{r}
+p=6
+cross_val_3(x_1,y_1,p)
+```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```{r}
+cross_val_4(x_1,y_1,p)
+```

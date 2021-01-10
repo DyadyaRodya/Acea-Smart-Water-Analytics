@@ -8,9 +8,14 @@ output: html_document
 ```{r}
 library(lubridate)
 library(ggplot2)
+library(ggplot2)
+library(hexbin)
 
 setwd("E:/prazia/univer/DataScience/Ekz/acea-water-prediction")
 df <- read.csv("Water_Spring_Madonna_di_Canneto.csv")
+df.test <- read.csv("csv_r3.csv")
+df.train <- read.csv("csv_r4.csv")
+
 
 df$п.їDate = strptime(df$п.їDate, "%d/%m/%Y")
 df$Date <- ymd(df$п.їDate)
@@ -28,6 +33,9 @@ df <- head(df, 3104)
 
 
 ```{r}
+
+library(lubridate)
+library(imputeTS)
 
 df$Rainfall_Settefrati <- na.interpolation(df$Rainfall_Settefrati, option = "spline")
 ggplot(data=df, aes(x=Date, y=df$Flow_Rate_Madonna_di_Canneto)) + geom_line()
@@ -54,8 +62,6 @@ write.csv(df[,c("Rainfall_Settefrati","Temperature_Settefrati", "Flow_Rate_Madon
 
 ```{r}
 
-df.test <- read.csv("csv_r3.csv")
-df.train <- read.csv("csv_r4.csv")
 
 head(df.test)
 head(df.train)
@@ -119,8 +125,13 @@ ggplot(data=df, aes(x=Date, y=df$Temperature_Settefrati)) + geom_line()
 
 ```{r}
 
+library(data.table)
+
 df <- df[order(df$Date), ]
 df['Time_Interval'] = df$Date - shift(df$Date, n=1, fill=NA, type="lag")
+
+df$log_flow <- log10(df$Flow_Rate_Madonna_di_Canneto + 1)
+ggplot(data=df, aes(x=Date, y=df$log_flow)) + geom_line()
 
 ```
 
@@ -142,17 +153,14 @@ for(i in days)
 
 ```
 
-
-```{r}
-
-myts <- ts(log(df$Flow_Rate_Madonna_di_Canneto + 1), start=c(2012, 1, 1), end=c(2020, 30, 6), frequency=52)
-
-```
-
 ```{r}
 library(tseries)
-result4 = adf.test(myts)
+result4 = adf.test(df$log_flow)
 result4
+
+myts <- ts(df$log_flow, start=c(2012, 1, 1), end=c(2020, 30, 6), frequency=52)
+
+myts <- diff(myts)
 
 decomp = decompose(myts, type='additive')
 
@@ -160,12 +168,31 @@ plot(decomp$trend)
 plot(decomp$seasonal)
 ```
 
+
+
 ```{r}
 
-myts <- diff(myts)
+#myts <- ts(df$Flow_Rate_Madonna_di_Canneto, start=c(2012, 1, 1), end=c(2020, 30, 6), frequency=52)
 
-result4 = adf.test(myts)
-result4
+```
+
+```{r}
+#library(tseries)
+#result4 = adf.test(myts)
+#result4
+
+#decomp = decompose(myts, type='additive')
+
+#plot(decomp$trend)
+#plot(decomp$seasonal)
+```
+
+```{r}
+
+#myts <- diff(myts)
+
+#result4 = adf.test(myts)
+#result4
 
 ```
 
@@ -179,7 +206,7 @@ result4
 
 ```{r}
 
-result4 = adf.test(myts)
+result4 = adf.test(diff(myts))
 result4
 
 decomp = decompose(myts, type='additive')
@@ -188,19 +215,6 @@ plot(decomp$trend)
 plot(decomp$seasonal)
 ```
 
-```{r}
-#myts <- sqrt(abs(myts))
-
-result4 = adf.test(myts)
-result4
-
-decomp = decompose(myts, type='additive')
-
-plot(decomp$trend)
-plot(decomp$seasonal)
-
-
-```
 
 
 ```{r}
@@ -222,30 +236,95 @@ library(forecast)
 
 auto.arima(split_USgas$train, trace=TRUE) 
 
-fit <- arima(split_USgas$train, order = c(1,1,7))
+fit <- arima(split_USgas$train, order = c(0,1,14))
 print(paste('ARIMA(1,1,14) - AICc: ', round(fit$aic,2)))
-fit.test1 <- arima(split_USgas$train, order = c(1,1,8))
+fit.test1 <- arima(split_USgas$train, order = c(0,1,15))
 print(paste('ARIMA(1,1,15) - AICc: ', round(fit.test1$aic,2)))
-fit.test2 <- arima(split_USgas$train, order = c(1,1,9))
-print(paste('ARIMA(1,1,13) - AICc: ', round(fit.test2$aic,2)))
-fit.test3 <- arima(split_USgas$train, order = c(0,1,7))
-print(paste('ARIMA(0,1,14) - AICc: ', round(fit.test3$aic,2)))
-fit.test4 <- arima(split_USgas$train, order = c(0,1,8))
-print(paste('ARIMA(0,1,15) - AICc: ', round(fit.test4$aic,2)))
+fit.test2 <- arima(split_USgas$train, order = c(1,1,14))
+print(paste('ARIMA(0,1,14) - AICc: ', round(fit.test2$aic,2)))
+fit.test3 <- arima(split_USgas$train, order = c(1,0,14))
+print(paste('ARIMA(0,0,14) - AICc: ', round(fit.test3$aic,2)))
+fit.test4 <- arima(split_USgas$train, order = c(1,1,14))
+print(paste('ARIMA(0,1,14) - AICc: ', round(fit.test4$aic,2)))
 
 ```
 ```{r}
-fit.test6 <- arima(split_USgas$train, order = c(0,1,7))
+fit.test6 <- arima(split_USgas$train, order = c(2,0,14))#, seasonal = c(1,0,0))
 print(paste('ARIMA(0,1,14) - AICc: ', round(fit.test6$aic,2)))
 
 checkresiduals(fit.test6)
-tsdisplay(residuals(fit.test6), lag.max = 20)
+tsdisplay(residuals(fit.test6), lag.max = 40)
 ```
 
 
+```{r}
+
+newdata2 <-forecast(fit.test6, h = 100, type="response")
+plot(split_USgas$train)
+plot(newdata2)
 
 
+clrs <- c("blue", "red")
+autoplot(split_USgas$train) +
+  autolayer(newdata2,
+    series="Forecast", PI=FALSE) +
+  autolayer(split_USgas$test,
+    series="Test", PI=FALSE) +
+  ggtitle("Forecastsing") +
+  xlab("Year") + ylab("Megalitres") +
+  guides(colour=guide_legend(title="Forecast"))+
+      scale_color_manual(values=clrs)
 
+autoplot(newdata2) +
+  autolayer(split_USgas$test,
+    series="Test", PI=FALSE) +
+  ggtitle("Forecastsing") +
+  xlab("Year") + ylab("Megalitres") +
+  guides(colour=guide_legend(title="Forecast"))+
+      scale_color_manual(values=clrs)
+
+
+```
+
+```{r}
+
+library(TSstudio)
+library(forecast)
+split_USgas <- ts_split(ts.obj = myts, 130)
+
+plot(split_USgas$train)
+plot(split_USgas$test)
+
+
+autoplot(split_USgas$train) +
+  autolayer(meanf(split_USgas$train),
+    series="Mean", PI=FALSE) +
+  autolayer(naive(split_USgas$train),
+    series="Naïve", PI=FALSE) +
+  autolayer(snaive(split_USgas$train),
+    series="Seasonal naïve", PI=FALSE) +
+   autolayer(split_USgas$test,
+    series="Test", PI=FALSE)+
+  ggtitle("Forecasts for quarterly beer production") +
+  xlab("Year") + ylab("Megalitres") +
+  guides(colour=guide_legend(title="Forecast"))
+
+```
+
+
+```{r}
+
+#Fit an AR(2) model to each rolling origin subset
+far2 <- function(x, h){forecast(fit.test6, h=h)}
+#e <- tsCV(split_USgas$train, far2, h=1)
+#plot(e)
+
+#Fit the same model with a rolling window of length 30
+e <- tsCV(split_USgas$train, far2, h=1)
+e1 <- tsCV(split_USgas$test, far2, h=1)
+autoplot(e) + autolayer(split_USgas$test) + autolayer(split_USgas$train) + autolayer(e1)
+
+```
 
 
 

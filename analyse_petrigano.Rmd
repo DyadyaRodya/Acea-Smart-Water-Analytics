@@ -9,6 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# ARIMA 
 # Aquifer
 ## Petrignano
 ### Data preparation
@@ -68,11 +69,33 @@ for(i in interval)
 
 
 ```{r}
+#depth <- diff(depth)
 depth <- na_interpolation(df$Depth_to_Groundwater, option = "linear")
-depth_ts <- ts(depth, start = df$Date[1], frequency=12)
-depth_ts <- diff(depth_ts)
+
+depth_ts <- ts(depth, start = df$Date[1], frequency=365)
+# see that it is not statonary
+adf.test(depth,alternative="stationary")
+```
+```{r}
+# box cox func
+lambda <- BoxCox.lambda(depth_ts)
+lambda
+tmp <- BoxCox(depth_ts, lambda = lambda)
+plot.ts(BoxCox(depth_ts, lambda = lambda))
+# diff to get stationary
+depth_ts <- diff(tmp)
+# it is really stationary
+adf.test(depth_ts,alternative="stationary")
 ```
 
+
+lambda=1.999959
+plot decomposed data
+```{r}
+ts_decompose(depth_ts)
+```
+
+look at seasonal 
 ```{r}
 ts_seasonal(depth_ts, type = "all")
 ts_plot(depth_ts)
@@ -117,4 +140,38 @@ ts_seasonal(hydrometry_ts, type = "all")
 Maximum in August, minimum in January.
 
 The volume and hydrometry reached their minimum around the same time
+
+# FOR PREDICT NEEDS:
+1. прогнозиорвать полследнее щначение тренда
+2. сезонность прогноз
+3. остатки - арима
+4. все складываем и предсказываем 
+
+MAKE ARIMA FOR RESIDUALS
+```{r}
+# for resisuals(noise) 
+h1 <- 1500 # the length of the testing partition
+h2 <- 770
+decomposed_ts <- decompose(depth_ts, type=c("additive"))
+USgas_split <- ts_split(decomposed_ts$random, sample.out = h1)
+train <- na_interpolation(USgas_split$train, option = "linear")
+test <- na_interpolation(USgas_split$test, option = "linear")
+
+ts_info(train)
+ts_info(test)
+```
+
+```{r}
+acf(train)
+pacf(train)
+```
+
+```{r}
+arima_1 <- Arima(train, order=c(3,1,1))
+arima_1
+tsdisplay(residuals(arima_1), lag.max = 20)
+fc1 <- forecast(arima_1,h=h1)
+accuracy(fc1, test)
+test_forecast(forecast.obj = fc1, actual = depth_ts, test = test)
+```
 

@@ -83,7 +83,9 @@ Project for Data science exam.
 ![](img/16.png)
 ![](img/17.png)
 6. Прогнозирование временного ряда 
+
 ![](11.png)
+
 7. Предсказание данных
 ![](img/12.png)
 

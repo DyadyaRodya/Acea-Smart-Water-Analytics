@@ -120,24 +120,34 @@ Project for Data science exam.
 ![](img/flow_cross_valid.png)
 
 ### Bilancio
-1. Подготовка данных
-![](img/balancia_prep.png)
 1. Сортировка по дате и проверка, что данные расположены через 1 единицу
 ![](img/balancio_int.png)
-2. Проверка данных на стационарность
-Выполнено для всех параметров Flow_Rate, level, Rainfall_S_Piero,Rainfall_Mangona, Rainfall_S_Agata, Rainfall_Cavallina, Rainfall_Le_Croci, Temperature_Le_Croci,  но приводить данные к нужному виду нужно только одну характеристику level.<br/>
+2. Подготовка данных
+![](img/balancia_prep.png)
+3. Проверка данных на стационарность
+Выполнено для всех параметров Flow_Rate, level, Rainfall_S_Piero,Rainfall_Mangona, Rainfall_S_Agata, Rainfall_Cavallina, Rainfall_Le_Croci, Temperature_Le_Croci,  но приводить данные к нужному виду характеристику (Lake Level) используя diff не рекомендуют при построении VAR модели.<br/>
 ![](img/level_adf.png)
-3. Приведение данных к нужному виду<br/>
+4. Приведение данных к нужному виду<br/>
 ![](img/level_diff.png)
 ![](img/flow_rate1_log.png)
-4. Подбор параметра модели<br/>
+5. Подбор параметра модели<br/>
 ![](img/VAR_p.png)
-5. Создание тестового и тренировочного наборов<br/>
+6. Создание тестового и тренировочного наборов<br/>
 ![](img/balanc_test.png)
-6. Подготовка модели и проверка её параметров (p-value, F-static, R-square)<br/>
+7. Подготовка модели и проверка её параметров (p-value, F-static, R-square)<br/>
 ![](img/bal_mod_create.png)
 ![](img/bal_mod_param.png)
-7. Предсказание<br/>
+8. Предсказание<br/>
 ![](img/bal_fors.png)
-8. Сравнение с реальными показателями<br/>
+9. Кросс-валидация<br/>
 ![](img/bal_check.png)
+10. Аналогично подготавливаем другие модели, изменяя задержку выходных параметров относительно входных (так как входные влияют лишь с задержкой), также реализуем в последней модели накопительный эффект.<br/>
+![](img/b_mod2.png)
+![](img/b_mod3.png)
+![](img/b_mod4.png)
+11. Сравниваем на кросс-валидации. У последней модели лучшие показатели.<br/>
+![](img/b_cv2.PNG)
+![](img/b_cv3.PNG)
+![](img/b_cv4.PNG)
+12. Проведем кросс-валидацию, при этом во время подсчета будем трансформировать данные к исходному виду<br/>
+![](img/b_cvNT.png)

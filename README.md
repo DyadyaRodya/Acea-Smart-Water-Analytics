@@ -175,4 +175,4 @@ Project for Data science exam.
 5. Подготовка моделей и проверка её параметров:
 ![](img/madona9.jpg)
 6. Предсказание:
-![](img/madona10.jpg)
+![](img/madona10.png)

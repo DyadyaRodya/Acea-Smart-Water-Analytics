@@ -87,6 +87,7 @@ Project for Data science exam.
 ![](11.png)
 
 7. Предсказание данных
+
 ![](img/12.png)
 
 
